@@ -85,11 +85,11 @@ EconomicAnalysis:
   yearly_degradation: 0.005
 
 SectionSegmentationTraining:
-  train_folder: '/storage/internal/home/r-pueblas/projects/rooftop-segmentation-datasets/data/RID/output/masks_segments_reviewed/train'
-  val_folder: '/storage/internal/home/r-pueblas/projects/rooftop-segmentation-datasets/data/RID/output/masks_segments_reviewed/val'
+  train_folder: '/scratch/clear/aboccala/training/RID/output/masks_segments/train'
+  val_folder: '/scratch/clear/aboccala/training/RID/output/masks_segments/val'
   output_folder: 'model'
   folder_name: 'section-segmentation'
-  model_name: 'sections.pth'
+  model_name: 'sections_test.pth'
   num_classes: 18
   batch_size: 8
   learning_rate: 0.00001

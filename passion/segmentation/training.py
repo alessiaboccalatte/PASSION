@@ -107,7 +107,7 @@ def train_model(train_data_path: pathlib.Path,
     num_workers=os.cpu_count())
  
   focal_loss = torch.hub.load(
-    'passion/segmentation/pytorch-multi-class-focal-loss',
+    '/scratch/clear/aboccala/PASSION/passion/segmentation/pytorch-multi-class-focal-loss',
     model='focal_loss',
     source='local',
     alpha=None,
