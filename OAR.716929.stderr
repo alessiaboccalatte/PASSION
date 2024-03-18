@@ -1,4 +1,0 @@
-Traceback (most recent call last):
-  File "/scratch/clear/aboccala/PASSION/workflow/scripts/train_section_segmentation.py", line 9, in <module>
-    with open(configfile, "r") as stream:
-FileNotFoundError: [Errno 2] No such file or directory: '../config.yml'

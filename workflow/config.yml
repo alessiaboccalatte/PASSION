@@ -89,11 +89,11 @@ SectionSegmentationTraining:
   val_folder: '/scratch/clear/aboccala/training/RID/output/masks_segments/val'
   output_folder: 'model'
   folder_name: 'section-segmentation'
-  model_name: 'sections_test.pth'
+  model_name: 'sections_test2.pth'
   num_classes: 18
-  batch_size: 500
+  batch_size: 50
   learning_rate: 0.00001
-  n_epochs: 20
+  n_epochs: 30
 
 RooftopSegmentationTraining:
   train_folder: '/storage/internal/home/r-pueblas/projects/rooftop-segmentation-datasets/data/INRIA/output/train'

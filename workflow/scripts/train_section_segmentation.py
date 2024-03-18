@@ -2,7 +2,7 @@ import passion
 import argparse, pathlib, yaml, pathlib, shapefile
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--config', metavar='C', type=str, help='Config file path', default='../config.yml')
+parser.add_argument('--config', metavar='C', type=str, help='Config file path', default='/scratch/clear/aboccala/PASSION/workflow/config.yml')
 args = vars(parser.parse_args())
 configfile = args['config']
 
