@@ -2,6 +2,7 @@ import pathlib
 import cv2
 import pickle
 import numpy as np
+from torch.utils.data import Subset
 import random
 import torch
 import torchvision
@@ -10,8 +11,16 @@ import os
 import time
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
+import torch.optim
+import torch.nn.functional as F
+import torch.nn as nn
 
 from passion.segmentation import models
+from passion.segmentation import models_dropouts
+from passion.segmentation import models_batch
+from passion.segmentation import models_resnet152
+from passion.segmentation import models_resnet50
+from passion.segmentation import model_ankit
 
 cv2.setNumThreads(4)
 # determine the device to be used for training and evaluation
@@ -45,6 +54,24 @@ class SegmentationDataset(torch.utils.data.Dataset):
 
 		return (image, mask)
 
+def intersection_over_union(confusion_matrix):
+    # Intersection = TP Union = TP + FP + FN
+    intersection = np.diag(confusion_matrix)
+    union = np.sum(confusion_matrix, axis=1) + np.sum(confusion_matrix, axis=0) - np.diag(confusion_matrix)
+    
+    # Aggiungi un piccolo valore epsilon per evitare divisione per zero
+    epsilon = 1e-9
+    iou = intersection / (union + epsilon)
+    
+    # Sostituisci eventuali NaN con 0 (o un altro valore a tua scelta)
+    iou = np.nan_to_num(iou, nan=0.0)
+    
+    return iou
+
+# def adjust_labels(mask, exclude_class=1, new_class=0):
+#     mask[mask == exclude_class] = new_class
+#     return mask
+
 def train_model(train_data_path: pathlib.Path,
                 val_data_path: pathlib.Path,
                 model_output_path: pathlib.Path,
@@ -75,6 +102,14 @@ def train_model(train_data_path: pathlib.Path,
   learning_rate       -- float, rate of the optimizer
   n_epochs            -- int, number of full dataset iterations
   '''
+  print(f"Training Configuration:")
+  print(f"Model Name: {model_name}")
+  print(f"Number of Classes: {num_classes}")
+  print(f"Batch Size: {batch_size}")
+  print(f"Learning Rate: {learning_rate}")
+  print(f"Number of Epochs: {n_epochs}")
+  print("-" * 50)
+
   model_output_path.mkdir(parents=True, exist_ok=True)
   
   train_image_paths = sorted(list((train_data_path / 'image').glob('*.png')))
@@ -88,15 +123,31 @@ def train_model(train_data_path: pathlib.Path,
   
   trans = torchvision.transforms.Compose([torchvision.transforms.ToTensor(), ])
   train_dataset = SegmentationDataset(image_paths=train_image_paths,
-                                      label_paths=train_label_paths,
-                                      transforms=trans)
-  val_dataset = SegmentationDataset(image_paths=val_image_paths,
-                                     label_paths=val_label_paths,
+                                     label_paths=train_label_paths,
                                      transforms=trans)
+  val_dataset = SegmentationDataset(image_paths=val_image_paths,
+                                    label_paths=val_label_paths,
+                                    transforms=trans)
+
   print(f"[INFO] found {len(train_dataset)}, examples in the training set...")
   print(f"[INFO] {len(train_image_paths)},{len(train_label_paths)}")
   print(f"[INFO] found {len(val_dataset)}, examples in the validation set...")
   print(f"[INFO] {len(val_image_paths)},{len(val_label_paths)}")
+
+
+  #Attiva x training sul 50% dei dati
+  # Calcola il 50% degli indici del dataset di training
+  # train_size = len(train_dataset)
+  # indices = list(range(train_size))
+  # reduced_size = int(0.5 * train_size)
+  # reduced_indices = random.sample(indices, reduced_size)  # Seleziona casualmente il 50% degli indici
+  # # Crea un subset del dataset originale
+  # reduced_train_dataset = Subset(train_dataset, reduced_indices)
+  # print(f"[INFO] Found {len(reduced_train_dataset)} examples in the reduced training set...")
+
+  # train_loader = torch.utils.data.DataLoader(reduced_train_dataset, shuffle=True,
+  #                                              batch_size=batch_size, pin_memory=PIN_MEMORY,
+  #                                              num_workers=os.cpu_count())
 
 
   train_loader = torch.utils.data.DataLoader(train_dataset, shuffle=True,
@@ -105,7 +156,7 @@ def train_model(train_data_path: pathlib.Path,
   val_loader = torch.utils.data.DataLoader(val_dataset, shuffle=False,
     batch_size=batch_size, pin_memory=PIN_MEMORY,
     num_workers=os.cpu_count())
- 
+
   focal_loss = torch.hub.load(
     '/scratch/clear/aboccala/PASSION/passion/segmentation/pytorch-multi-class-focal-loss',
     model='focal_loss',
@@ -120,9 +171,12 @@ def train_model(train_data_path: pathlib.Path,
   loss_func = focal_loss
 
   print(f'Initializing ResNetUNet with {num_classes} classes...')
-  unet = models.ResNetUNet(num_classes).to(DEVICE)
+  #unet = models.ResNetUNet(num_classes).to(DEVICE)
+  unet = model_ankit.ResNetUNet(num_classes).to(DEVICE)
   unet.to(DEVICE)
-  optimizer = torch.optim.Adam(unet.parameters(), lr=learning_rate)
+  optimizer = torch.optim.Adam(unet.parameters(), lr=learning_rate, weight_decay=1e-5)
+  # optimizer = torch.optim.AdamW(unet.parameters(), lr=learning_rate)
+  scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.1, patience=5, verbose=True)
 
   train_steps = len(train_dataset) // batch_size
   val_steps = len(val_dataset) // batch_size
@@ -153,6 +207,7 @@ def train_model(train_data_path: pathlib.Path,
     total_val, total_val_correct = 0, 0
     # loop over the training set
     for (i, (x, y)) in enumerate(train_loader):
+      # y = adjust_labels(y, exclude_class=1, new_class=0)
       y *= 255
       # send the input to the device
       (x, y) = (x.to(DEVICE), y.to(DEVICE))
@@ -170,8 +225,7 @@ def train_model(train_data_path: pathlib.Path,
       loss.backward()
       optimizer.step()
       # add the loss to the total training loss so far
-      total_train_loss += loss
-
+      total_train_loss += loss.detach()
 
       pred = torch.argmax(pred, dim=1)
       total += y.size().numel()
@@ -183,8 +237,9 @@ def train_model(train_data_path: pathlib.Path,
       cm += confmat(pred, y)
 
     train_iou = intersection_over_union(cm.cpu().detach().numpy())
-    mean_train_iou = np.mean(train_iou)
-    print('Train Class IOU', train_iou)
+    filtered_train_iou = train_iou[train_iou != 0]  # Filtra per rimuovere gli zeri
+    mean_train_iou = np.mean(filtered_train_iou)
+    print('Train Class IOU', filtered_train_iou)
     print('Train Mean Class IOU:{}'.format(mean_train_iou))
 
     # switch off autograd
@@ -195,7 +250,8 @@ def train_model(train_data_path: pathlib.Path,
       unet.eval()
       # loop over the validation set
       for (x, y) in val_loader:
-        # send the input to the device
+        # y = adjust_labels(y, exclude_class=1, new_class=0)
+         # send the input to the device
         y *= 255
         (x, y) = (x.to(DEVICE), y.to(DEVICE))
         # make the predictions and calculate the validation loss
@@ -204,31 +260,32 @@ def train_model(train_data_path: pathlib.Path,
           y = y.type(torch.cuda.LongTensor).squeeze()
         else:
           y = y.type(torch.LongTensor).squeeze()
-        #y = replaceTensor(y)
+        #y = replaceTensor(y)       
         loss = loss_func(pred, torch.squeeze(y))
         total_val_loss += loss
 
         pred = torch.argmax(pred, dim=1)
         total_val += y.size().numel()
         total_val_correct += (pred == y).sum().item()
-
+        
         if DEVICE == "cuda":
           pred = pred.type(torch.cuda.LongTensor).squeeze()
         else:
           pred = pred.type(torch.LongTensor).squeeze()
 
         j_s = jaccard((pred), (y))
-        cm += confmat(pred, y)
+        cm += confmat(pred, y) 
       val_iou = intersection_over_union(cm.cpu().detach().numpy())
-      mean_val_iou = np.mean(val_iou)
-      print('Val Class IOU', val_iou)
-      print('Val Mean Class IOU:{}'.format(np.mean(val_iou)))
+      filtered_val_iou = val_iou[val_iou != 0]  # Filtra per rimuovere gli zeri
+      mean_val_iou = np.mean(filtered_val_iou)
+      print('Val Class IOU', filtered_val_iou)
+      print('Val Mean Class IOU:{}'.format(mean_val_iou))
 
       if(mean_val_iou > best_val_score):
         print('Better Model Found: {} > {}'.format(mean_val_iou, best_val_score))
         best_val_score = mean_val_iou
         torch.save(unet, model_output_path / model_name)
-  
+
     # calculate the average training and validation loss
     avg_train_loss = total_train_loss / train_steps
     avg_val_loss = total_val_loss / val_steps
@@ -257,21 +314,13 @@ def train_model(train_data_path: pathlib.Path,
     print("[INFO] EPOCH: {}/{}".format(e + 1, n_epochs))
     print("Train loss: {:.6f}, Val loss: {:.4f} Train Acc: {:.6f}, Val Acc: {:.4f}".format(
       avg_train_loss, avg_val_loss, avg_train_acc, avg_val_acc))
+    scheduler.step(avg_val_loss)
   # display the total time needed to perform the training
   end_time = time.time()
   print("[INFO] total time taken to train the model: {:.2f}s".format(
     end_time - start_time))
-  
+
   # serialize the model to disk
   torch.save(unet, model_output_path / 'model_last.pth')
   writer.flush()
   print('Best Val Score:{}'.format(best_val_score))
-
-
-def intersection_over_union(confusion_matrix):
-	# Intersection = TP Union = TP + FP + FN
-	# IoU = TP / (TP + FP + FN)
-	intersection = np.diag(confusion_matrix)
-	union = np.sum(confusion_matrix, axis=1) + np.sum(confusion_matrix, axis=0) - np.diag(confusion_matrix)
-	iou = intersection / union
-	return iou

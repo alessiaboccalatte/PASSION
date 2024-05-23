@@ -10,3 +10,7 @@ test/tmp/
 gurobi.log
 output
 logs/
+*.png
+*.stderr
+*.stdout
+*.ipynb

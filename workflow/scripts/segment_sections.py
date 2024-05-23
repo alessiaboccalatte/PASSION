@@ -6,7 +6,7 @@ from tqdm.auto import tqdm
 import shutil
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--config', metavar='C', type=str, help='Config file path')
+parser.add_argument('--config', metavar='C', type=str, default='/scratch/clear/aboccala/PASSION/workflow/config.yml', help='Path to the configuration file')
 args = vars(parser.parse_args())
 configfile = args['config']
 

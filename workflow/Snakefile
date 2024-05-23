@@ -1,4 +1,21 @@
-configfile: 'workflow/config.yml'
+import passion
+import argparse, pathlib, yaml, pathlib, shapefile
+import torch
+import requests
+from tqdm.auto import tqdm
+import shutil
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--config', metavar='C', type=str, default='/scratch/clear/aboccala/PASSION/workflow/config.yml', help='Path to the configuration file')
+args = vars(parser.parse_args())
+configfile = args['config']
+
+with open(configfile, "r") as stream:
+    try:
+        config = yaml.safe_load(stream)
+    except yaml.YAMLError as exc:
+        print(exc)
+        exit
 
 results = config['results_path']
 project_results = f"{results}/{config['project_name']}-z{config['ImageRetrieval']['zoom']}"

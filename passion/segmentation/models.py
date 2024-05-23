@@ -7,9 +7,11 @@ from torch.nn import ReLU
 from torchvision.transforms import CenterCrop
 from torch.nn import functional as F
 import torch
+import numpy as np
 
 NUM_CLASSES = 18
 INPUT_IMAGE_HEIGHT, INPUT_IMAGE_WIDTH = 512, 512
+#INPUT_IMAGE_HEIGHT, INPUT_IMAGE_WIDTH = 256, 256
 
 class Block(Module):
     def __init__(self, inChannels, outChannels):
@@ -158,6 +160,7 @@ class ResNetUNet(nn.Module):
         layer3 = self.layer3(layer2)
         layer4 = self.layer4(layer3)
 
+
         layer4 = self.layer4_1x1(layer4)
         x = self.upsample(layer4)
         layer3 = self.layer3_1x1(layer3)
@@ -185,4 +188,5 @@ class ResNetUNet(nn.Module):
 
         out = self.conv_last(x)
 
-        return out
+        return out 
+    

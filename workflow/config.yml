@@ -1,17 +1,17 @@
 
 results_path: workflow/output
-project_name: sample
+project_name: test_2
 
 ImageRetrieval:
-  api_key: ''
+  api_key: 'Ak8EiI-dqWML6m1oSGcqh9OPJE6w1X865Ukl3m56ulOUE6bEtJknm4Uq2eur4qfO'
   service: bing
   zoom: 19
   output_folder: satellite
   bbox:
-    min_lat: 50.780540206411494
-    min_lon: 6.075009080646369
-    max_lat: 50.769610743766044
-    max_lon: 6.094732826367578
+    min_lat: 45.21103073120117
+    min_lon: 5.752840042114258
+    max_lat: 45.20503073120117
+    max_lon: 5.762840042114258
 
   #shapefile: 'workflow/input/apeldoorn/308148215.shp'
 
@@ -32,10 +32,10 @@ RooftopSegmentation:
 
 SectionSegmentation:
   output_folder: 'segmentation/sections'
-  model_rel_path: 'model/section-segmentation/sections.pth'
-  tile_size: 512
-  stride: 512
-  background_class: 17
+  model_rel_path: '/scratch/clear/aboccala/PASSION/workflow/output/model/section-segmentation/sections_test43_512x512_resnet34_0303drop.pth'
+  tile_size: 256
+  stride: 256
+  background_class: 0
   opening_closing_kernel: 7 # For morphological opening and closing
   erosion_kernel: 1 # For erosion
   
@@ -84,16 +84,29 @@ EconomicAnalysis:
   discount_rate: 0.08
   yearly_degradation: 0.005
 
+# SectionSegmentationTraining:
+#   train_folder: '/scratch/clear/aboccala/training/RID/output_mix_ge_va/train_ge'
+#   val_folder: '/scratch/clear/aboccala/training/RID/output_mix_ge_va/test_va'
+#   output_folder: 'model'
+#   folder_name: 'section-segmentation'
+#   model_name: 'test_slope0_manualw_ge_va.pth'
+#   num_classes: 18
+#   batch_size: 50
+#   learning_rate: 0.0001
+#   n_epochs: 20
+
 SectionSegmentationTraining:
-  train_folder: '/scratch/clear/aboccala/training/RID/output/masks_segments/train'
-  val_folder: '/scratch/clear/aboccala/training/RID/output/masks_segments/val'
+  train_folder: '/scratch/clear/aboccala/training/RID/output_mix_ge_va/train_ge'
+  val_folder: '/scratch/clear/aboccala/training/RID/output_mix_ge_va/test_va'
   output_folder: 'model'
   folder_name: 'section-segmentation'
-  model_name: 'sections_test2.pth'
-  num_classes: 18
+  model_name: 'test_seg_ge_va_noawl.pth'
+  num_classes_orient: 18
+  num_classes_slope: 8
   batch_size: 50
-  learning_rate: 0.00001
-  n_epochs: 30
+  learning_rate_seg: 0.0001
+  learning_rate_slope: 0.0001
+  n_epochs: 50
 
 RooftopSegmentationTraining:
   train_folder: '/storage/internal/home/r-pueblas/projects/rooftop-segmentation-datasets/data/INRIA/output/train'

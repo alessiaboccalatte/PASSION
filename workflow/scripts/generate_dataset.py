@@ -2,7 +2,7 @@ import passion
 import argparse, pathlib, yaml, pathlib, shapefile
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--config', metavar='C', type=str, help='Config file path')
+parser.add_argument('--config', metavar='C', type=str, default='/scratch/clear/aboccala/PASSION/workflow/config.yml', help='Path to the configuration file')
 args = vars(parser.parse_args())
 configfile = args['config']
 
@@ -34,6 +34,7 @@ if shape:
 project_results_path = pathlib.Path(config.get('results_path')) / (f"{config.get('project_name')}-z{str(zoom)}")
 output_folder = image_retrieval_config['output_folder']
 output_path = project_results_path / output_folder
+print(f"Output path: {output_path}")
 
 passion.satellite.image_retrieval.generate_dataset(api_key, service, output_path,
                                     zoom = zoom, bbox=bbox, shapefile=shape)
